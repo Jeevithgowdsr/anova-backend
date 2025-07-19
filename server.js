@@ -1,30 +1,50 @@
-// backend/server.js
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const dotenv = require("dotenv");
 const { OpenAI } = require("openai");
 
-dotenv.config();
 const app = express();
-app.use(cors());
+
+// CORS Setup - Add your Firebase Hosting URL later
+app.use(cors({
+  origin: ["http://localhost:3000", "https://anova-assistant.web.app"],
+  methods: ["GET", "POST"],
+  credentials: false
+}));
+
 app.use(express.json());
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // Add your OpenAI API key in .env
+  apiKey: process.env.OPENAI_API_KEY
 });
 
+// Health check
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", time: new Date().toISOString() });
+});
+
+// Chat route
 app.post("/chat", async (req, res) => {
   try {
     const { message } = req.body;
+    if (!message || message.trim() === "") {
+      return res.status(400).json({ error: "Message is required" });
+    }
+
     const response = await openai.responses.create({
       model: "gpt-4o-mini",
-      input: message,
+      input: message
     });
+
     res.json({ reply: response.output_text });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Something went wrong" });
+  } catch (err) {
+    console.error("OpenAI error:", err?.response?.data || err.message);
+    res.status(500).json({ error: "AI request failed" });
   }
 });
 
-app.listen(5000, () => console.log("Backend running on http://localhost:5000"));
+// Dynamic port for Render
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Backend running on port ${PORT}`);
+});
